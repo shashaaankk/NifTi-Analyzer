@@ -9,31 +9,29 @@ orientation code and viewing plane, anisotropy, HU range, and the contrast
 phase predicted by TotalSegmentator's `totalseg_get_phase` (phase,
 probability, post-injection time, its range, and stddev).
 
-## System requirements (Linux)
-
-pywebview uses the system GTK stack, which pip cannot provide:
-`python3-gi` and `gir1.2-webkit2-4.1` (Debian/Ubuntu names). The venv must
-see them: set `include-system-site-packages = true` in `.venv/pyvenv.cfg`.
-
 ## Install
 
+One installer for Linux, Windows, and macOS. It needs Python 3.10+ on the
+system, checks everything else itself, and installs the full application
+including the contrast-phase model stack (torch, ~2 GB; CPU-only torch is
+chosen automatically when no NVIDIA GPU is present).
+
 ```bash
-python -m venv .venv
-sed -i 's/include-system-site-packages = false/include-system-site-packages = true/' .venv/pyvenv.cfg
-.venv/bin/pip install '.[phase]'
+python3 install.py
 ```
 
-The `phase` extra pulls TotalSegmentator and torch (~2 GB) plus xgboost
-(which upstream forgets to declare). Without it the app still reports
-everything header-derived and marks the phase row unavailable.
+On Windows: `py install.py`. Re-run after `git pull` to upgrade;
+`python3 install.py --uninstall` reverts everything.
+
+Platform notes. On Linux the window uses the system WebKit2GTK stack
+(`python3-gi`, `gir1.2-webkit2-4.1`); the installer detects what is missing
+and offers the exact install command. On Windows the window uses the
+preinstalled Edge WebView2 runtime, nothing extra needed.
 
 ## Run
 
-```bash
-.venv/bin/nifti-analyzer
-```
-
-(`nifti-analyzer-desktop` is the same entry point.) Pick a `.nii` / `.nii.gz`
+`nifti-analyzer` from the terminal, or the NIfTI Analyzer entry in the
+application menu (Linux) / Start Menu (Windows). Pick a `.nii` / `.nii.gz`
 file with Browse or drag-and-drop, press Run analysis. The header metrics
 take under a second; the contrast phase runs TotalSegmentator (seconds on
 GPU, minutes on CPU). Cancel kills the model's whole process tree. Save
