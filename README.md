@@ -1,38 +1,84 @@
+![NIfTI Analyzer](banner.svg)
+
 # NIfTI Analyzer
 
-Standalone desktop app that takes a NIfTI CT volume and reports its geometry,
-HU statistics, and contrast phase. No server, no ports: the window's page
-talks to Python directly over pywebview's js_api bridge (WebKit2GTK).
+A desktop app that reads a NIfTI CT volume (`.nii` / `.nii.gz`) and reports:
 
-Reported metrics: dimensions, coverage, pixel width, slice thickness,
-orientation code and viewing plane, anisotropy, HU range, and the contrast
-phase predicted by TotalSegmentator's `totalseg_get_phase` (phase,
-probability, post-injection time, its range, and stddev).
+- geometry: dimensions, coverage, pixel width, slice thickness, orientation, anisotropy
+- intensity: the HU range
+- contrast phase: phase, probability, post-injection time, its range and stddev,
+  predicted by [TotalSegmentator](https://github.com/wasserth/TotalSegmentator)'s
+  `totalseg_get_phase` (Wasserthal J. et al., "TotalSegmentator: Robust
+  Segmentation of 104 Anatomic Structures in CT Images", Radiology:
+  Artificial Intelligence, 2023, [doi:10.1148/ryai.230024](https://doi.org/10.1148/ryai.230024))
+
+Results appear in a table and can be saved as CSV. No server, no browser:
+it is a single window, and everything runs on your machine.
+
+## What you need before installing
+
+| | Linux | Windows |
+|---|---|---|
+| Python | 3.10 or newer (`python3 --version`) | 3.10 or newer, from [python.org](https://www.python.org/downloads/) |
+| Disk space | ~3 GB (the phase model uses torch) | ~3 GB |
+| Extras | none, the installer checks the rest | none, WebView2 ships with Windows 10/11 |
+
+No Python on Windows yet? Install it first, and tick "Add python.exe to
+PATH" in its installer.
 
 ## Install
 
-One installer for Linux, Windows, and macOS. It needs Python 3.10+ on the
-system, checks everything else itself, and installs the full application
-including the contrast-phase model stack (torch, ~2 GB; CPU-only torch is
-chosen automatically when no NVIDIA GPU is present).
+Step 1. Get the code.
+
+```bash
+git clone <repo-url>
+cd "NifTi Analyzer"
+```
+
+Step 2. Run the installer.
 
 ```bash
 python3 install.py
 ```
 
-On Windows: `py install.py`. Re-run after `git pull` to upgrade;
-`python3 install.py --uninstall` reverts everything.
+On Windows, use `py install.py` instead.
 
-Platform notes. On Linux the window uses the system WebKit2GTK stack
-(`python3-gi`, `gir1.2-webkit2-4.1`); the installer detects what is missing
-and offers the exact install command. On Windows the window uses the
-preinstalled Edge WebView2 runtime, nothing extra needed.
+Step 3. Answer its one possible question. On Linux, if system packages are
+missing, the installer shows the exact `sudo apt-get install` command and
+asks before running it.
 
-## Run
+Step 4. Wait. The first install downloads the phase model stack (~2 GB).
+The installer picks the smaller CPU-only torch automatically when there is
+no NVIDIA GPU.
 
-`nifti-analyzer` from the terminal, or the NIfTI Analyzer entry in the
-application menu (Linux) / Start Menu (Windows). Pick a `.nii` / `.nii.gz`
-file with Browse or drag-and-drop, press Run analysis. The header metrics
-take under a second; the contrast phase runs TotalSegmentator (seconds on
-GPU, minutes on CPU). Cancel kills the model's whole process tree. Save
-result writes the report as CSV via a native save dialog.
+That is all. The installer ends with "Done" after checking itself.
+
+## Use
+
+1. Start the app: type `nifti-analyzer` in a terminal, or open "NIfTI
+   Analyzer" from the application menu (Linux) / Start Menu (Windows).
+2. Pick a volume with Browse, or drop a `.nii` / `.nii.gz` file on the window.
+3. Press "Run analysis".
+4. Read the table. The geometry rows appear from the file header; the
+   contrast-phase rows come from the model (seconds on GPU, minutes on CPU).
+   The small "i" buttons explain the non-obvious metrics.
+5. Press "Save result" to write the table as a CSV file.
+
+The very first analysis also downloads the model weights (~1.5 GB, one time,
+to `~/.totalsegmentator`).
+
+## Update
+
+```bash
+git pull
+python3 install.py
+```
+
+## Uninstall
+
+```bash
+python3 install.py --uninstall
+```
+
+Removes the app's environment and menu entry. The cloned folder and your
+data stay untouched.
