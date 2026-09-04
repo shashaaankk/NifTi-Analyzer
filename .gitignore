@@ -1,0 +1,18 @@
+# virtual environment
+.venv/
+
+# python build and cache artifacts
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# run output
+nohup.out
+
+# editor and OS leftovers
+.vscode/
+.idea/
+*.swp
+.DS_Store

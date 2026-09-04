@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NIfTI Analyzer</title>
+<style>
+  :root{
+    --accent:#2f7fd4; --accent-dark:#2568b0;
+    --text:#1c1e21; --muted:#5f6672;
+    --border:#d7dbe0; --bg:#f5f6f8; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5}
+  header{background:var(--card);border-bottom:1px solid var(--border);padding:14px 24px}
+  header .inner{max-width:760px;margin:0 auto;display:flex;align-items:baseline;gap:12px}
+  header h1{margin:0;font-size:17px;font-weight:600}
+  main{flex:1;width:100%;max-width:760px;margin:0 auto;padding:32px 24px}
+  .page{display:none;flex-direction:column;gap:16px}
+  .page.active{display:flex}
+  .h1{font-size:20px;font-weight:600}
+  .sub{color:var(--muted)}
+  .sub.error{color:#b3261e}
+  button{height:34px;padding:0 16px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font:inherit;cursor:pointer}
+  button:hover:enabled{border-color:#b9bfc8;background:#fafbfc}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover:enabled{background:var(--accent-dark)}
+  .drop{min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed var(--border);border-radius:8px;background:var(--card);cursor:pointer;text-align:center;padding:16px}
+  .drop:hover{border-color:var(--accent)}
+  .drop.dragover{border-color:var(--accent);background:#eef5fc}
+  .drop .big{font-size:15px}
+  .drop .big.name{font-weight:600}
+  .row{display:flex;align-items:center;gap:10px}
+  .pathbox{flex:1;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);font:inherit;color:var(--text)}
+  .progress-outer{height:10px;border-radius:5px;background:#e4e7eb;position:relative;overflow:hidden}
+  .progress-fill{position:absolute;inset:0;width:0%;background:var(--accent);border-radius:5px;transition:width .3s linear}
+  .between{display:flex;justify-content:space-between}
+  .small{color:var(--muted);font-size:13px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px}
+  .thead{display:grid;grid-template-columns:1fr 1.6fr;padding:8px 14px;background:#f0f2f5;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;border-radius:8px 8px 0 0}
+  .trow{display:grid;grid-template-columns:1fr 1.6fr;padding:8px 14px;border-bottom:1px solid #eceef1}
+  .trow:last-child{border-bottom:none}
+  .metric{display:flex;align-items:center;gap:6px}
+  .ibtn{width:16px;height:16px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--muted);font-size:11px;font-style:italic;font-family:Georgia,serif;line-height:1;cursor:help;flex:none}
+  .ibtn:hover{border-color:var(--accent);color:var(--accent)}
+  .tipwrap{position:relative;display:inline-flex}
+  .tip{display:none;position:absolute;left:22px;top:-4px;z-index:10;width:300px;padding:8px 10px;background:var(--text);color:var(--card);border-radius:6px;font-size:12px;line-height:1.5;font-style:normal;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  .tipwrap:hover .tip,.ibtn:focus + .tip{display:block}
+  .foot{display:flex;justify-content:flex-end;gap:10px}
+  .procbox{display:flex;flex-direction:column;gap:8px;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <h1>NIfTI Analyzer</h1>
+  </div>
+</header>
+
+<main>
+  <div class="page active" id="page-upload">
+    <div>
+      <div class="h1">Load a NIfTI volume</div>
+      <div class="sub" id="upload-sub">Select a .nii or .nii.gz file to analyze.</div>
+    </div>
+    <div class="drop" id="drop">
+      <div class="big" id="drop-title">Drop a NIfTI file here</div>
+      <div class="sub" id="drop-sub">or click to browse</div>
+    </div>
+    <div class="row">
+      <input class="pathbox" id="pathbox" readonly placeholder="No file selected">
+      <button id="browse">Browse&hellip;</button>
+      <button class="primary" id="run" disabled>Run analysis</button>
+    </div>
+  </div>
+
+  <div class="page" id="page-processing">
+    <div>
+      <div class="h1" id="proc-name">Processing</div>
+      <div class="sub" id="proc-meta"></div>
+    </div>
+    <div class="card procbox">
+      <div class="between"><span id="step-label">Starting&hellip;</span><span id="pct-text">0%</span></div>
+      <div class="progress-outer"><div class="progress-fill" id="bar"></div></div>
+      <div class="between small"><span id="step-num">Step 1 of 4</span><span id="eta-text"></span></div>
+    </div>
+    <div class="foot">
+      <button id="cancel">Cancel</button>
+    </div>
+  </div>
+
+  <div class="page" id="page-results">
+    <div>
+      <div class="h1" id="res-name">Results</div>
+      <div class="sub" id="res-meta"></div>
+    </div>
+    <div class="card" id="table">
+      <div class="thead"><span>Metric</span><span>Value</span></div>
+    </div>
+    <div class="foot">
+      <button id="again">Upload a new volume</button>
+      <button class="primary" id="download">Save result</button>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let selectedFile = null;   // {path, name, size_mb}
+let pollTimer = null;
+let currentJobId = null;
+
+const api = () => window.pywebview.api;
+
+function showPage(name) {
+  for (const p of document.querySelectorAll(".page")) p.classList.remove("active");
+  $("page-" + name).classList.add("active");
+}
+function meta(sizeMb) { return `${Number(sizeMb).toFixed(1)} MB · NIfTI`; }
+
+function showError(text) {
+  const el = $("upload-sub");
+  el.textContent = text;
+  el.classList.add("error");
+}
+function clearError() {
+  const el = $("upload-sub");
+  el.textContent = "Select a .nii or .nii.gz file to analyze.";
+  el.classList.remove("error");
+}
+
+function setFile(file) {
+  if (file && !/\.nii(\.gz)?$/.test(file.name)) {
+    showError("Not a NIfTI file: " + file.name);
+    return;
+  }
+  selectedFile = file;
+  clearError();
+  if (file) {
+    $("drop-title").textContent = file.name;
+    $("drop-title").classList.add("name");
+    $("drop-sub").textContent = meta(file.size_mb);
+    $("pathbox").value = file.path;
+    $("run").disabled = false;
+  } else {
+    $("drop-title").textContent = "Drop a NIfTI file here";
+    $("drop-title").classList.remove("name");
+    $("drop-sub").textContent = "or click to browse";
+    $("pathbox").value = "";
+    $("run").disabled = true;
+  }
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(poll, 700);
+}
+
+async function browse() {
+  let f;
+  try { f = await api().pick_file(); } catch { return; }
+  if (f) setFile(f);
+}
+$("browse").onclick = e => { e.stopPropagation(); browse(); };
+$("drop").onclick = browse;
+$("drop").ondragover = e => { e.preventDefault(); $("drop").classList.add("dragover"); };
+$("drop").ondragleave = () => $("drop").classList.remove("dragover");
+$("drop").ondrop = e => {
+  e.preventDefault();
+  $("drop").classList.remove("dragover");
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const full = f.pywebviewFullPath;
+  if (!full) {
+    showError("Drag and drop is not supported here; use Browse instead.");
+    return;
+  }
+  setFile({ path: full, name: f.name, size_mb: f.size / 1e6 });
+};
+
+$("run").onclick = async () => {
+  if (!selectedFile) return;
+  $("run").disabled = true;
+  let j;
+  try { j = await api().analyze(selectedFile.path); }
+  catch (err) { showError("Could not start: " + err); $("run").disabled = false; return; }
+  if (!j.ok) {
+    showError(j.error);
+    $("run").disabled = false;
+    return;
+  }
+  currentJobId = j.job_id;
+  $("proc-name").textContent = "Processing " + j.name;
+  $("proc-meta").textContent = meta(j.size_mb);
+  showPage("processing");
+  startPolling();
+};
+
+async function poll() {
+  let s;
+  try { s = await api().status(); }
+  catch { return; }
+  if (s.state === "running") {
+    currentJobId = s.job_id;
+    $("bar").style.width = s.pct + "%";
+    $("pct-text").textContent = s.pct + "%";
+    $("step-label").textContent = s.step_label + "…";
+    $("step-num").textContent = `Step ${s.step + 1} of 4`;
+    $("eta-text").textContent = `${Math.round(s.elapsed)}s elapsed`;
+  } else if (s.state === "done") {
+    clearInterval(pollTimer);
+    await showResults();
+  } else if (s.state === "error") {
+    clearInterval(pollTimer);
+    showPage("upload");
+    showError("Analysis failed: " + s.error);
+    $("run").disabled = !selectedFile;
+  } else if (s.state === "cancelled") {
+    clearInterval(pollTimer);
+    showPage("upload");
+    $("run").disabled = !selectedFile;
+  }
+}
+
+async function showResults() {
+  let r;
+  try { r = await api().result(); }
+  catch (err) { showPage("upload"); showError("Could not load result: " + err); return; }
+  if (!r.ok) {
+    showPage("upload");
+    showError("Could not load result: " + r.error);
+    $("run").disabled = !selectedFile;
+    return;
+  }
+  $("res-name").textContent = "Results: " + r.name;
+  $("res-meta").textContent = `${meta(r.size_mb)} · completed in ${r.elapsed}s`;
+  const table = $("table");
+  for (const el of table.querySelectorAll(".trow")) el.remove();
+  for (const row of r.rows) {
+    const div = document.createElement("div");
+    div.className = "trow";
+    const metricCell = document.createElement("span");
+    metricCell.className = "metric";
+    metricCell.append(row.label);
+    if (row.info) {
+      const wrap = document.createElement("span");
+      wrap.className = "tipwrap";
+      const btn = document.createElement("button");
+      btn.className = "ibtn";
+      btn.type = "button";
+      btn.textContent = "i";
+      btn.setAttribute("aria-label", "About " + row.label);
+      const tip = document.createElement("span");
+      tip.className = "tip";
+      tip.textContent = row.info;
+      wrap.append(btn, tip);
+      metricCell.appendChild(wrap);
+    }
+    const value = document.createElement("span");
+    value.textContent = (row.value + " " + row.unit).trim();
+    div.append(metricCell, value);
+    table.appendChild(div);
+  }
+  $("download").textContent = "Save result";
+  showPage("results");
+}
+
+$("cancel").onclick = async () => {
+  try { await api().cancel(currentJobId); } catch {}
+};
+
+$("again").onclick = () => {
+  setFile(null);
+  showPage("upload");
+};
+
+$("download").onclick = async () => {
+  let r;
+  try { r = await api().save_csv(); }
+  catch (err) { showPage("upload"); showError("Save failed: " + err); return; }
+  if (r.ok) {
+    $("download").textContent = "Saved";
+  } else if (!r.cancelled) {
+    showPage("upload");
+    showError("Save failed: " + r.error);
+    $("run").disabled = !selectedFile;
+  }
+};
+
+// Reconnect on load: if the page reloads while a job runs, re-attach to it.
+window.addEventListener("pywebviewready", async () => {
+  let s;
+  try { s = await api().status(); }
+  catch { return; }
+  if (s.state === "running") {
+    currentJobId = s.job_id;
+    $("proc-name").textContent = "Processing " + s.name;
+    $("proc-meta").textContent = meta(s.size_mb);
+    showPage("processing");
+    startPolling();
+  } else if (s.state === "done") {
+    await showResults();
+  }
+});
+</script>
+</body>
+</html>

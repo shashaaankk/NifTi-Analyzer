@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nifti-analyzer"
+version = "0.2.0"
+description = "Standalone desktop app reporting geometry, HU statistics, and contrast phase for NIfTI CT volumes"
+requires-python = ">=3.10"
+dependencies = [
+    "nibabel>=5.0",
+    "numpy>=1.26",
+    # Native window via WebKit2GTK. On Linux pywebview needs the system
+    # PyGObject/WebKit2GTK, so the venv must allow system site packages
+    # (include-system-site-packages = true in pyvenv.cfg).
+    "pywebview>=5.0",
+]
+
+[project.optional-dependencies]
+# The contrast-phase prediction runs TotalSegmentator (pulls torch, ~2 GB).
+# xgboost is undeclared upstream but totalseg_get_phase imports it.
+# Without this extra the app still reports everything header-derived.
+phase = ["TotalSegmentator>=2.13", "xgboost>=2.0"]
+
+[project.scripts]
+nifti-analyzer = "nifti_analyzer.desktop:main"
+nifti-analyzer-desktop = "nifti_analyzer.desktop:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nifti_analyzer = ["static/*"]
